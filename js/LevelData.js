@@ -44,13 +44,13 @@
         var data = this.nbt.getBuffer();
         data = this.gzip.zip(data, { 
             os: 'fat',
-            name: 'level.dat',
+            name: 'level',
             level: 1 /* workaround */
         });
 
         data = new Uint8Array(data);
         bb.append(data.buffer);
-        return bb.getBlob('application/x-gzip');
+        return bb.getBlob('application/octet-stream');
     }
     
     global.LevelData = LevelData;
