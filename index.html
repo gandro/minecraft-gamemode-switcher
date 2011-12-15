@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Minecraft Game Mode Switcher</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script src="js/node-gzip.js"></script>
+    <script src="js/jquery-1.7.1.min.js"></script>
+    <script src="js/NBTViewer.js"></script>
+    <script src="js/LevelData.js"></script>
+    <script src="js/DataView.js"></script>
+</head>
+
+<body>
+
+<h1>Minecraft Game Mode Switcher</h1>
+
+<div id="error" class="rounded"><h2>Sorry, something went wrong.</h2><div id="errormsg">
+Your browser is not yet supported. Please update to a compatible browser which supports
+the following HTML5 features:
+<ul>
+    <li><a href="http://caniuse.com/#feat=blobbuilder">FileAPI and BlobBuilder</a></li>
+    <li><a href="http://caniuse.com/#feat=typedarrays">Typed arrays</a></li>
+</ul>
+Or use an Minecraft savegame 
+<a href="http://www.minecraftwiki.net/wiki/Programs_and_editors#Specialized_Programs">editor</a>
+which works offline, like NBTedit.
+</div></div>
+<div id="content" style="display: none">
+<div id="step1" class="dark rounded"><h2>Step 1: Drop your <code>level.dat</code> here</h2>
+<div>
+First, you'll need the save file for your Minecraft world. Make sure Minecraft isn't running.
+<ol>
+    <li>Open the following path in your file manager:
+        <blockquote><code id="path">~/.minecraft/saves</code></blockquote>
+    </li>
+    <li>Select and open the folder named after your Minecraft world.</li>
+    <li>Look for a file called <code>level.dat</code> and drag and drop it into 
+        this box here, or <a href="#" id="filechooser_link">click here</a>
+        to open a file chooser dialog.
+        <input type="file" id="filechooser">
+    </li>
+</ol>
+</div>
+</div>
+
+<div id="step2" class="dark rounded"><h2>Step 2: Change the game mode</h2>
+<div id="editor">
+<span id="leveldesc">Your World:</span>
+<h2 id="levelname"></h2>
+<div class="switch" id="gamemode">
+    <span id="creative" class="disabled">Creative</span><span id="survival" class="disabled">Survival</span>
+</div>
+</div>
+</div>
+
+<div id="step3" class="dark rounded"><h2>Step 3: Download your new save file</h2>
+<div>
+Save this file as <code>level.dat</code> and replace your old save game with this new file.
+<div id="download">
+<a href="">Download</a>
+</div>
+</div>
+</div>
+</div>
+<div id="credits">
+Credits: 
+<a href="http://www.retributiongames.com/quandary/">Quandary Texture Pack</a> |
+<a href="https://github.com/beatgammit/gzip-js">gzip-js</a>, 
+<a href="https://github.com/beatgammit/deflate-js">deflate-js</a> &
+<a href="https://github.com/beatgammit/crc32">crc32.js</a> |
+<a href="https://github.com/substack/node-browserify">node-browserify</a> |
+<a href="https://github.com/davidflanagan/DataView.js">DataView.js</a> |
+<a href="http://jquery.com/">jQuery</a> |
+<a href="mailto:gandro@gmx.net">me</a>
+</div>
+<script>  
+
+    function errorHandler(error) {
+        var msg = error;
+        if(error instanceof Error) {
+            msg = error.message;
+        }
+        console.log(msg);
+        $('#errormsg').html(msg);
+        $('#error').fadeIn('slow');
+        $('#step3 div').hide();
+        $('#editor').hide();
+    }
+
+    function loadFile(files, callback) {
+        if(files.length == 0) {
+            return errorHandler('No valid files dropped.');
+        } else if(files.length > 1) {
+            return errorHandler('Please drop only one file at a time!');
+        }
+        
+        var file = files[0];
+        if(file.size == 0) {
+            return errorHandler('The selected file seems to be empty!');
+        } else if(file.size > 8192) {
+            return errorHandler('The selected file is too big for a valid save file!');
+        }
+    
+        var reader = new FileReader();
+        reader.onload = (function(e) {
+            try {
+                leveldata = new LevelData(e.target.result);
+            } catch(err) {
+                return errorHandler(err);
+            }
+            callback(leveldata);
+
+        });
+        reader.readAsArrayBuffer(files[0]);
+    }
+
+    var creativeSwitch = document.getElementById('creative');
+    var survivalSwitch = document.getElementById('survival');
+
+    function handleFileSelect(files) {
+        $('#step3 div').fadeOut();
+        loadFile(files, function (leveldata) {
+            $('#error').fadeOut();
+            
+            if($('#editor:hidden').length > 0) {
+            $('#step1 div').slideUp();
+            $('#step1 h2').css({ cursor: 'pointer' });
+            $('#step1 h2').click(function () {
+                $('#step1 div').slideToggle();
+            });
+            }
+        
+            var gametype = leveldata.getGameType();
+            if(gametype === 0) {
+                survivalSwitch.className = 'active';
+            } else if(gametype === 1) {
+                creativeSwitch.className = 'active';
+            }
+            
+            $('#levelname').text(leveldata.getLevelName());
+            
+            $('#editor').slideDown();
+        });
+    }
+    
+    function handleGameTypeSwitch(gametype) {
+        leveldata.setGameType(gametype);
+        var objectURL = window.URL.createObjectURL(leveldata.createBlob());
+        var link = $('#download a');
+        link.attr('href', objectURL);
+        link.attr('download', 'level.dat');
+        
+        if($('#step3 div:hidden').length > 0) {
+            $('#step3 div').slideDown();
+        } else {
+            $('#download').fadeTo('fast', 0.7).fadeTo('slow', 1.0);
+        }
+    }    
+    
+    window.BlobBuilder = window.MozBlobBuilder || window.WebKitBlobBuilder || 
+                            MSBlobBuilder || window.OBlobBuilder || 
+                            window.BlobBuilder ;
+    window.URL = window.URL || window.webkitURL;
+    
+    var supportedBrowser = (window.BlobBuilder && window.URL && window.ArrayBuffer);
+    
+    if(supportedBrowser) {
+        $('#error').hide();
+        $('#step3 div').hide();
+        $('#editor').hide();
+
+        var dropZone = $('#step1');
+        var fileChooser = $('#filechooser');
+        var fileChooserLink = $('#filechooser_link');
+
+        
+        var fileChooser = $('#filechooser');
+        var fileChooserLink = $('#filechooser_link');
+
+        fileChooser.wrap($('<div>').css({
+            height: 0,
+            width:0,
+            'overflow':'hidden'
+        }));
+        
+        fileChooserLink.click(function (e) {
+            if (fileChooser) fileChooser.click();
+            e.preventDefault();
+        });
+        
+        fileChooser.bind('change', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            handleFileSelect(e.target.files);
+        });
+
+        dropZone.bind('dragover dragenter', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            e.originalEvent.dataTransfer.dropEffect = 'copy';
+            
+            return false;
+        });
+        
+        dropZone.bind('drop', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            handleFileSelect(e.originalEvent.dataTransfer.files);
+            
+            return false;
+        });
+
+        $(creativeSwitch).click(function (e) {
+            creativeSwitch.className = 'active';
+            survivalSwitch.className = 'disabled';
+            handleGameTypeSwitch(1);
+        });
+    
+        $(survivalSwitch).click(function (e) {
+            survivalSwitch.className = 'active';
+            creativeSwitch.className = 'disabled';
+            handleGameTypeSwitch(0);
+        });
+
+
+        var windows = !!(navigator.appVersion.indexOf("Windows")!=-1);
+        var macosx = !!(navigator.appVersion.indexOf("Macintosh")!=-1);
+        var unix = !!(navigator.appVersion.indexOf("X11")!=-1);
+    
+        if(windows) {
+            $('#path').text('%AppData%\\.minecraft\\saves');
+        } else if(macosx) {
+            $('#path').text('~/Library/Application Support/.minecraft/saves');
+        } else if(unix) {
+            $('#path').text('~/.minecraft/saves');
+        }
+
+        $('#content').show();
+    }
+    
+</script>
+</body>
+</html>
